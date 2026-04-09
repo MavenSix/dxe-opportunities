@@ -22,15 +22,27 @@ export const STAGE_LABEL: Record<PipelineStage, string> = {
 
 /** Normalize legacy rows when "lost" was a stage (now use status "Lost" / etc.). */
 export function migrateOpportunityRow(row: Opportunity): Opportunity {
-  if ((row.stage as string) === "lost") {
-    return {
-      ...row,
-      stage: "prospects",
-      status:
-        row.status === "—" || row.status.trim() === ""
-          ? "Lost"
-          : row.status,
-    };
+  let { status, stage } = row;
+  const stageStr = stage as string;
+
+  if (stageStr === "lost") {
+    stage = "prospects";
+    status =
+      status === "—" || status.trim() === "" ? "Lost" : status;
+  }
+
+  if (status === "Ongoing") {
+    status = "In progress";
+  }
+  if (status === "Starts Monday" || status === "Starts on Monday") {
+    status = "Starting";
+  }
+  if (status === "Sent") {
+    status = "Sent email";
+  }
+
+  if (stageStr === "lost" || status !== row.status || stage !== row.stage) {
+    return { ...row, stage, status };
   }
   return row;
 }
@@ -51,7 +63,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "AI Audits",
     person: "Daulton",
     stage: "pipeline",
-    status: "Ongoing",
+    status: "In progress",
     notes:
       "Talk with Thomas learn reporting. Will do one for DentalPlans.com (OPP).",
   },
@@ -60,7 +72,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "Glory Global",
     person: "Gina",
     stage: "pipeline",
-    status: "Ongoing",
+    status: "In progress",
     notes:
       "Pinged Michael. Nothing new right now. Will follow up in a month.",
   },
@@ -86,7 +98,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "Memic",
     person: "Gina",
     stage: "pipeline",
-    status: "—",
+    status: "SOW Under Review",
     notes: "Consulting work, plug-and-play; working on SOW, price TBD.",
   },
   {
@@ -110,7 +122,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "Card Kingdom AEO Approach",
     person: "Daulton",
     stage: "client_growth",
-    status: "Ongoing",
+    status: "In progress",
     notes:
       "Sent to Eugene; waiting to hear from client; will follow up with Eugene.",
   },
@@ -119,7 +131,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "MTH Reporting",
     person: "Daulton",
     stage: "client_growth",
-    status: "Ongoing",
+    status: "In progress",
     notes:
       "Work with Nilesh, separate SOW (Christine and Cortney). Will reach out and make a proposal when Nilesh back from PTO.",
   },
@@ -154,7 +166,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "Verathon",
     person: "Gina",
     stage: "client_growth",
-    status: "Prospect",
+    status: "SOW Sent",
     notes:
       "SOW sent; due at end of month; no response from Brian.",
   },
@@ -171,7 +183,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "Arc3 Gases Analytics",
     person: "Daulton",
     stage: "prospects",
-    status: "Ongoing",
+    status: "In progress",
     notes: "Sue is going to reach out.",
   },
   {
@@ -195,7 +207,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "EAA Pitch",
     person: "Brett",
     stage: "client_growth",
-    status: "Sent",
+    status: "Sent email",
     notes: "Ping to see why not down-selected.",
   },
   {
@@ -203,7 +215,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "Card Kingdom",
     person: "Kevin",
     stage: "projects",
-    status: "Starts Monday",
+    status: "Starting",
     notes:
       "MOVE TO PROJECT. Design system built. Will be done with header and footer. Moving into checkout next week.",
   },
@@ -212,7 +224,7 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "Bunge SEO Audit",
     person: "Daulton",
     stage: "projects",
-    status: "Ongoing",
+    status: "In progress",
     notes:
       "MOVE TO PROJECT. Audit is almost done. GC trying to get time to get in front of Steve.",
   },
@@ -229,10 +241,95 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
     account: "Qorvo",
     person: "Livvie",
     stage: "projects",
-    status: "Ongoing",
+    status: "In progress",
     notes:
       "MOVE TO PROJECT. Want to front-load Ed's hours or change request; may need to reduce Ed's hours. Livvie started on Qorvo. Livvie will think about who to bring back. Will ping Amrit with plan.",
   },
 ];
 
-export const STORAGE_KEY = "dxe-opportunities-v1";
+const defaultOpportunityById = new Map(
+  DEFAULT_OPPORTUNITIES.map((r) => [r.id, r] as const),
+);
+
+/**
+ * For rows that match bundled seed ids, set `status` to the current default.
+ * Used when `APP_DATA_REVISION` increases so product updates reach saved workbooks.
+ */
+export function applySeedDefaultStatus(row: Opportunity): Opportunity {
+  const def = defaultOpportunityById.get(row.id);
+  if (!def) return row;
+  return { ...row, status: def.status };
+}
+
+/** Increment when bundled seed data meaningfully changes (triggers merge on next load). */
+export const APP_DATA_REVISION = 2;
+
+/** Current localStorage key (stores `{ rev, rows }`). */
+export const STORAGE_KEY = "dxe-opportunities-v2";
+
+const STORAGE_KEY_LEGACY = "dxe-opportunities-v1";
+
+type StoredPayload = { rev: number; rows: Opportunity[] };
+
+export function loadPersistedOpportunities(): Opportunity[] {
+  if (typeof localStorage === "undefined") {
+    return DEFAULT_OPPORTUNITIES;
+  }
+  try {
+    const fromCurrent = localStorage.getItem(STORAGE_KEY);
+    let rows: Opportunity[] | null = null;
+    let rev = APP_DATA_REVISION;
+
+    if (fromCurrent) {
+      const parsed = JSON.parse(fromCurrent) as unknown;
+      if (Array.isArray(parsed)) {
+        rows = parsed as Opportunity[];
+        rev = 0;
+      } else if (
+        parsed &&
+        typeof parsed === "object" &&
+        "rows" in (parsed as object) &&
+        Array.isArray((parsed as StoredPayload).rows)
+      ) {
+        const p = parsed as StoredPayload;
+        rows = p.rows;
+        rev = typeof p.rev === "number" ? p.rev : 0;
+      }
+    }
+
+    if (!rows?.length) {
+      const legacy = localStorage.getItem(STORAGE_KEY_LEGACY);
+      if (legacy) {
+        const old = JSON.parse(legacy) as unknown;
+        if (Array.isArray(old) && old.length > 0) {
+          rows = old as Opportunity[];
+          rev = 0;
+          localStorage.removeItem(STORAGE_KEY_LEGACY);
+        }
+      }
+    }
+
+    if (!rows?.length) {
+      return DEFAULT_OPPORTUNITIES;
+    }
+
+    if (rev < APP_DATA_REVISION) {
+      return rows
+        .map(applySeedDefaultStatus)
+        .map(migrateOpportunityRow);
+    }
+    return rows.map(migrateOpportunityRow);
+  } catch {
+    return DEFAULT_OPPORTUNITIES;
+  }
+}
+
+export function persistOpportunities(rows: Opportunity[]): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const payload: StoredPayload = { rev: APP_DATA_REVISION, rows };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    /* ignore quota */
+  }
+}

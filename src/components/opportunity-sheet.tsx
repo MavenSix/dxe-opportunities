@@ -4,9 +4,9 @@ import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import type { Opportunity, PipelineStage } from "@/data/opportunities";
 import {
   DEFAULT_OPPORTUNITIES,
-  migrateOpportunityRow,
+  loadPersistedOpportunities,
+  persistOpportunities,
   STAGE_LABEL,
-  STORAGE_KEY,
 } from "@/data/opportunities";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,22 +45,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { OpportunityOverviewCharts } from "@/components/opportunity-overview-charts";
 
 const ALL = "__all__";
-
-function loadRows(): Opportunity[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_OPPORTUNITIES;
-    const parsed = JSON.parse(raw) as Opportunity[];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return DEFAULT_OPPORTUNITIES;
-    }
-    return parsed.map(migrateOpportunityRow);
-  } catch {
-    return DEFAULT_OPPORTUNITIES;
-  }
-}
 
 function statusBadgeClass(status: string) {
   const s = status.toLowerCase();
@@ -73,11 +60,18 @@ function statusBadgeClass(status: string) {
   if (s.includes("hold")) {
     return "border-dxe-ink-soft/35 bg-dxe-cream-2/90 text-dxe-ink-soft";
   }
-  if (s.includes("progress") || s === "ongoing") {
+  if (
+    s.includes("progress") ||
+    s === "ongoing" ||
+    s.includes("starting")
+  ) {
     return "border-dxe-gold/50 bg-dxe-gold-bg text-dxe-gold";
   }
   if (s.includes("prospect")) {
     return "border-dxe-gold-lt/45 bg-dxe-gold-bg/80 text-dxe-ink-mid";
+  }
+  if (s.includes("sow") || s.includes("sent email")) {
+    return "border-dxe-teal/35 bg-dxe-teal-lt/70 text-dxe-teal";
   }
   return "border-dxe-rule bg-dxe-cream-2/60 text-dxe-ink-soft";
 }
@@ -91,7 +85,7 @@ const emptyAddForm = {
 };
 
 export function OpportunitySheet() {
-  const [rows, setRows] = useState<Opportunity[]>(loadRows);
+  const [rows, setRows] = useState<Opportunity[]>(loadPersistedOpportunities);
   const [filterAccount, setFilterAccount] = useState(ALL);
   const [filterPerson, setFilterPerson] = useState(ALL);
   const [filterStatus, setFilterStatus] = useState(ALL);
@@ -99,7 +93,7 @@ export function OpportunitySheet() {
   const [addForm, setAddForm] = useState(emptyAddForm);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    persistOpportunities(rows);
   }, [rows]);
 
   const accounts = useMemo(
@@ -161,7 +155,7 @@ export function OpportunitySheet() {
     const next = [...DEFAULT_OPPORTUNITIES];
     setRows(next);
     reconcileFilters(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    persistOpportunities(next);
   }
 
   function commitAddRow() {
@@ -306,12 +300,14 @@ export function OpportunitySheet() {
         </CardContent>
       </Card>
 
+      <OpportunityOverviewCharts filtered={filtered} />
+
       <Card className="border border-dxe-rule border-l-4 border-l-dxe-teal bg-dxe-paper shadow-none">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1.5">
             <div className="flex items-baseline gap-3">
               <span className="font-heading text-[13px] font-light italic text-dxe-gold">
-                02
+                03
               </span>
               <CardTitle className="font-heading text-xl font-bold tracking-tight text-dxe-ink">
                 Pipeline
@@ -400,7 +396,7 @@ export function OpportunitySheet() {
                   onChange={(e) =>
                     setAddForm((f) => ({ ...f, status: e.target.value }))
                   }
-                  placeholder="e.g. Ongoing"
+                  placeholder="e.g. In progress"
                   autoComplete="off"
                 />
               </div>
