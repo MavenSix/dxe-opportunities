@@ -41,6 +41,13 @@ export function migrateOpportunityRow(row: Opportunity): Opportunity {
     status = "Sent email";
   }
 
+  if (row.id === "memic" && status === "—") {
+    status = "SOW Under Review";
+  }
+  if (row.id === "verathon" && status === "Prospect") {
+    status = "SOW Sent";
+  }
+
   if (stageStr === "lost" || status !== row.status || stage !== row.stage) {
     return { ...row, stage, status };
   }
@@ -247,77 +254,47 @@ export const DEFAULT_OPPORTUNITIES: Opportunity[] = [
   },
 ];
 
-const defaultOpportunityById = new Map(
-  DEFAULT_OPPORTUNITIES.map((r) => [r.id, r] as const),
-);
+/** One key, one format: a JSON array of rows. Migrations run on every load. */
+export const STORAGE_KEY = "dxe-opportunities-v1";
 
-/**
- * For rows that match bundled seed ids, set `status` to the current default.
- * Used when `APP_DATA_REVISION` increases so product updates reach saved workbooks.
- */
-export function applySeedDefaultStatus(row: Opportunity): Opportunity {
-  const def = defaultOpportunityById.get(row.id);
-  if (!def) return row;
-  return { ...row, status: def.status };
+const STORAGE_KEY_V2_OBSOLETE = "dxe-opportunities-v2";
+
+function parseStoredRows(raw: string): Opportunity[] | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed as Opportunity[];
+    }
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "rows" in parsed &&
+      Array.isArray((parsed as { rows: Opportunity[] }).rows) &&
+      (parsed as { rows: Opportunity[] }).rows.length > 0
+    ) {
+      return (parsed as { rows: Opportunity[] }).rows;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
-
-/** Increment when bundled seed data meaningfully changes (triggers merge on next load). */
-export const APP_DATA_REVISION = 2;
-
-/** Current localStorage key (stores `{ rev, rows }`). */
-export const STORAGE_KEY = "dxe-opportunities-v2";
-
-const STORAGE_KEY_LEGACY = "dxe-opportunities-v1";
-
-type StoredPayload = { rev: number; rows: Opportunity[] };
 
 export function loadPersistedOpportunities(): Opportunity[] {
   if (typeof localStorage === "undefined") {
     return DEFAULT_OPPORTUNITIES;
   }
   try {
-    const fromCurrent = localStorage.getItem(STORAGE_KEY);
-    let rows: Opportunity[] | null = null;
-    let rev = APP_DATA_REVISION;
-
-    if (fromCurrent) {
-      const parsed = JSON.parse(fromCurrent) as unknown;
-      if (Array.isArray(parsed)) {
-        rows = parsed as Opportunity[];
-        rev = 0;
-      } else if (
-        parsed &&
-        typeof parsed === "object" &&
-        "rows" in (parsed as object) &&
-        Array.isArray((parsed as StoredPayload).rows)
-      ) {
-        const p = parsed as StoredPayload;
-        rows = p.rows;
-        rev = typeof p.rev === "number" ? p.rev : 0;
-      }
-    }
-
-    if (!rows?.length) {
-      const legacy = localStorage.getItem(STORAGE_KEY_LEGACY);
-      if (legacy) {
-        const old = JSON.parse(legacy) as unknown;
-        if (Array.isArray(old) && old.length > 0) {
-          rows = old as Opportunity[];
-          rev = 0;
-          localStorage.removeItem(STORAGE_KEY_LEGACY);
-        }
-      }
-    }
+    const rawV1 = localStorage.getItem(STORAGE_KEY);
+    const rawV2 = localStorage.getItem(STORAGE_KEY_V2_OBSOLETE);
+    const rows =
+      (rawV1 ? parseStoredRows(rawV1) : null) ??
+      (rawV2 ? parseStoredRows(rawV2) : null);
 
     if (!rows?.length) {
       return DEFAULT_OPPORTUNITIES;
     }
 
-    if (rev < APP_DATA_REVISION) {
-      return rows
-        .map(applySeedDefaultStatus)
-        .map(migrateOpportunityRow);
-    }
     return rows.map(migrateOpportunityRow);
   } catch {
     return DEFAULT_OPPORTUNITIES;
@@ -327,8 +304,8 @@ export function loadPersistedOpportunities(): Opportunity[] {
 export function persistOpportunities(rows: Opportunity[]): void {
   if (typeof localStorage === "undefined") return;
   try {
-    const payload: StoredPayload = { rev: APP_DATA_REVISION, rows };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    localStorage.removeItem(STORAGE_KEY_V2_OBSOLETE);
   } catch {
     /* ignore quota */
   }
