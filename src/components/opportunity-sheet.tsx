@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 
 import type { Opportunity, PipelineStage } from "@/data/opportunities";
 import {
@@ -91,6 +91,15 @@ export function OpportunitySheet() {
   const [filterStatus, setFilterStatus] = useState(ALL);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState(emptyAddForm);
+  const [saveFlash, setSaveFlash] = useState(false);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSave = useCallback(() => {
+    persistOpportunities(rows);
+    setSaveFlash(true);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setSaveFlash(false), 1500);
+  }, [rows]);
 
   useEffect(() => {
     persistOpportunities(rows);
@@ -192,7 +201,8 @@ export function OpportunitySheet() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 pb-16 sm:px-6">
+    <>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 pb-24 sm:px-6">
       <header className="grid gap-6 border-b-2 border-dxe-ink pb-6 sm:grid-cols-[1fr_auto] sm:items-end">
         <div>
           <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-dxe-gold">
@@ -641,5 +651,28 @@ export function OpportunitySheet() {
         </CardContent>
       </Card>
     </div>
+
+    {/* Fixed save bar */}
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-dxe-rule bg-dxe-paper/95 backdrop-blur-sm">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+        <span className="text-xs text-dxe-ink-soft">
+          {rows.length} {rows.length === 1 ? "opportunity" : "opportunities"} total
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          className="gap-2"
+          onClick={handleSave}
+        >
+          {saveFlash ? (
+            <Check className="size-4" aria-hidden />
+          ) : (
+            <Save className="size-4" aria-hidden />
+          )}
+          {saveFlash ? "Saved!" : "Save"}
+        </Button>
+      </div>
+    </div>
+  </>
   );
 }
