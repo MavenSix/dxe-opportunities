@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { AlertCircle, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import type { Opportunity, PipelineStage } from "@/data/opportunities";
 import { DEFAULT_OPPORTUNITIES, STAGE_LABEL } from "@/data/opportunities";
 import { useOpportunitiesSync } from "@/hooks/useOpportunitiesSync";
+import { getMissingViteSupabaseEnv } from "@/lib/supabaseClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { OpportunityOverviewCharts } from "@/components/opportunity-overview-charts";
+import { SaveStatusBar } from "@/components/save-status-bar";
 
 const ALL = "__all__";
 
@@ -87,6 +89,7 @@ export function OpportunitySheet() {
     loadState,
     saveState,
     saveError,
+    lastSavedAt,
     cloudEnabled,
     usingLocalFallback,
     retrySave,
@@ -203,61 +206,34 @@ export function OpportunitySheet() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 pb-16 sm:px-6">
-      <header className="grid gap-6 border-b-2 border-dxe-ink pb-6 sm:grid-cols-[1fr_auto] sm:items-end">
-        <div>
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-dxe-gold">
-            XCentium · DXE practice
-          </p>
-          <h1 className="font-heading text-[clamp(1.75rem,4vw,2.75rem)] font-bold leading-[0.95] tracking-[-0.02em] text-dxe-ink">
-            Opportunities{" "}
-            <em className="font-light not-italic text-dxe-ink-mid">sheet</em>
-          </h1>
-          <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-dxe-ink-mid">
-            All project types on one page. Add or delete rows per section, filter, rename,
-            and move types. Edits autosave
-            {cloudEnabled ? " to the team workbook" : " in this browser"}.
-          </p>
-        </div>
-        <div className="max-w-[14rem] text-[11px] leading-relaxed text-dxe-ink-soft sm:text-left md:text-right">
-          {cloudEnabled ? (
-            <>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-32 pt-10 sm:px-6">
+      <header className="border-b-2 border-dxe-ink pb-6">
+        <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div>
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-dxe-gold">
+              XCentium · DXE practice
+            </p>
+            <h1 className="font-heading text-[clamp(1.75rem,4vw,2.75rem)] font-bold leading-[0.95] tracking-[-0.02em] text-dxe-ink">
+              Opportunities{" "}
+              <em className="font-light not-italic text-dxe-ink-mid">sheet</em>
+            </h1>
+            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-dxe-ink-mid">
+              All project types on one page. Add or delete rows per section, filter, rename,
+              and move types. Status and save feedback stay pinned at the bottom as you work.
+            </p>
+          </div>
+          {!cloudEnabled && (
+            <div className="max-w-[18rem] text-[11px] leading-relaxed text-dxe-ink-soft sm:text-right">
               <strong className="mb-1 block font-semibold text-dxe-ink">
-                Cloud sync
+                Cloud sync off
               </strong>
-              {saveState === "saving" && (
-                <span className="text-dxe-ink-mid">Saving…</span>
-              )}
-              {saveState === "saved" && (
-                <span className="text-dxe-teal">Saved</span>
-              )}
-              {saveState === "error" && (
-                <span className="text-dxe-coral">
-                  Couldn’t save
-                  {saveError ? `: ${saveError}` : ""}.{" "}
-                  <button
-                    type="button"
-                    className="font-semibold underline decoration-dotted underline-offset-2 hover:text-dxe-ink"
-                    onClick={() => void retrySave()}
-                  >
-                    Retry
-                  </button>
-                </span>
-              )}
-            </>
-          ) : (
-            <>
-              <strong className="mb-1 block font-semibold text-dxe-ink">
-                This browser only
-              </strong>
-              <span>Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to sync the team.</span>
-            </>
-          )}
-          {usingLocalFallback && (
-            <span className="mt-2 flex items-start gap-1.5 text-dxe-coral">
-              <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              <span>Cloud unavailable — showing data from this device.</span>
-            </span>
+              <span className="block">
+                Add <code className="rounded bg-dxe-cream-2 px-1 text-[10px]">VITE_SUPABASE_*</code>{" "}
+                in <code className="rounded bg-dxe-cream-2 px-1 text-[10px]">.env.local</code>{" "}
+                (see <code className="rounded bg-dxe-cream-2 px-1 text-[10px]">.env.example</code>
+                ). Missing: {getMissingViteSupabaseEnv().join(", ")}.
+              </span>
+            </div>
           )}
         </div>
       </header>
@@ -687,6 +663,15 @@ export function OpportunitySheet() {
           })}
         </CardContent>
       </Card>
+
+      <SaveStatusBar
+        saveState={saveState}
+        saveError={saveError}
+        lastSavedAt={lastSavedAt}
+        cloudEnabled={cloudEnabled}
+        usingLocalFallback={usingLocalFallback}
+        onRetry={retrySave}
+      />
     </div>
   );
 }

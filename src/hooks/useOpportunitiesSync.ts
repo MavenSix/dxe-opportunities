@@ -36,6 +36,7 @@ export function useOpportunitiesSync() {
   const [loadState, setLoadState] = useState<"loading" | "ready">("loading");
   const [saveState, setSaveState] = useState<SaveUiState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [usingLocalFallback, setUsingLocalFallback] = useState(false);
 
   const hydratedRef = useRef(false);
@@ -51,6 +52,7 @@ export function useOpportunitiesSync() {
           hydratedRef.current = true;
           setLoadState("ready");
           setSaveState("saved");
+          setLastSavedAt(new Date());
         }
         return;
       }
@@ -70,6 +72,7 @@ export function useOpportunitiesSync() {
         setLoadState("ready");
         hydratedRef.current = true;
         setSaveState("saved");
+        setLastSavedAt(new Date());
         return;
       }
 
@@ -100,6 +103,7 @@ export function useOpportunitiesSync() {
 
       hydratedRef.current = true;
       setLoadState("ready");
+      setLastSavedAt(new Date());
     }
 
     void load();
@@ -117,6 +121,7 @@ export function useOpportunitiesSync() {
       queueMicrotask(() => {
         setSaveState("saved");
         setSaveError(null);
+        setLastSavedAt(new Date());
       });
       return;
     }
@@ -141,6 +146,7 @@ export function useOpportunitiesSync() {
       } else {
         setSaveState("saved");
         setSaveError(null);
+        setLastSavedAt(new Date());
       }
     }, SAVE_DEBOUNCE_MS);
 
@@ -152,6 +158,7 @@ export function useOpportunitiesSync() {
       persistOpportunities(rows);
       setSaveState("saved");
       setSaveError(null);
+      setLastSavedAt(new Date());
       return;
     }
     setSaveState("saving");
@@ -171,6 +178,7 @@ export function useOpportunitiesSync() {
     } else {
       setSaveState("saved");
       setSaveError(null);
+      setLastSavedAt(new Date());
     }
   }, [rows, supabase]);
 
@@ -186,6 +194,7 @@ export function useOpportunitiesSync() {
     loadState,
     saveState,
     saveError,
+    lastSavedAt,
     cloudEnabled: !!supabase,
     usingLocalFallback,
     retrySave,
