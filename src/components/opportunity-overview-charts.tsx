@@ -21,12 +21,11 @@ import {
 import type { Opportunity, PipelineStage } from "@/data/opportunities";
 import { STAGE_LABEL } from "@/data/opportunities";
 
-/** Matches :root --chart-* in index.css for reliable SVG fills */
 const STAGE_FILL: Record<PipelineStage, string> = {
-  pipeline: "#094a42",
-  client_growth: "#a1760a",
-  prospects: "#9e352a",
-  projects: "#2a2824",
+  pipeline: "#379FB2",
+  client_growth: "#1A6D7D",
+  prospects: "#02140D",
+  projects: "#6B7280",
 };
 
 const STAGES_ORDER: PipelineStage[] = [
@@ -38,8 +37,8 @@ const STAGES_ORDER: PipelineStage[] = [
 
 const STATUS_TOP_N = 10;
 
-const AXIS_TICK = { fill: "#5f5b55", fontSize: 11 };
-const GRID_STROKE = "rgba(5, 5, 4, 0.12)";
+const AXIS_TICK = { fill: "#6B7280", fontSize: 11 };
+const GRID_STROKE = "rgba(2, 20, 13, 0.08)";
 
 const EASE_OUT_SOFT = [0.22, 1, 0.25, 1] as const;
 
@@ -314,7 +313,7 @@ export function OpportunityOverviewCharts({
                       <Bar
                         dataKey="count"
                         name="Opportunities"
-                        fill="#094a42"
+                        fill="#379FB2"
                         radius={[4, 4, 0, 0]}
                         isAnimationActive={!reducedMotion}
                         animationDuration={reducedMotion ? 0 : 520}
@@ -370,7 +369,7 @@ export function OpportunityOverviewCharts({
                       <Bar
                         dataKey="count"
                         name="Count"
-                        fill="#a1760a"
+                        fill="#1A6D7D"
                         radius={[0, 4, 4, 0]}
                         isAnimationActive={!reducedMotion}
                         animationDuration={reducedMotion ? 0 : 520}

@@ -50,26 +50,26 @@ const ALL = "__all__";
 function statusBadgeClass(status: string) {
   const s = status.toLowerCase();
   if (s.includes("lost")) {
-    return "border-dxe-coral/45 bg-dxe-coral/10 text-dxe-coral";
+    return "border-dxe-coral/40 bg-red-50 text-dxe-coral";
   }
   if (s.includes("won")) {
-    return "border-dxe-teal/50 bg-dxe-teal-lt text-dxe-teal";
+    return "border-dxe-gold/50 bg-dxe-gold-bg text-dxe-teal";
   }
   if (s.includes("hold")) {
-    return "border-dxe-ink-soft/35 bg-dxe-cream-2/90 text-dxe-ink-soft";
+    return "border-dxe-ink-soft/30 bg-dxe-cream-2 text-dxe-ink-soft";
   }
   if (
     s.includes("progress") ||
     s === "ongoing" ||
     s.includes("starting")
   ) {
-    return "border-dxe-gold/50 bg-dxe-gold-bg text-dxe-gold";
+    return "border-dxe-gold/40 bg-dxe-gold-bg text-dxe-teal";
   }
   if (s.includes("prospect")) {
-    return "border-dxe-gold-lt/45 bg-dxe-gold-bg/80 text-dxe-ink-mid";
+    return "border-dxe-gold/30 bg-dxe-gold-bg/60 text-dxe-ink-mid";
   }
   if (s.includes("sow") || s.includes("sent email")) {
-    return "border-dxe-teal/35 bg-dxe-teal-lt/70 text-dxe-teal";
+    return "border-dxe-teal/30 bg-dxe-teal-lt/70 text-dxe-teal";
   }
   return "border-dxe-rule bg-dxe-cream-2/60 text-dxe-ink-soft";
 }
@@ -540,7 +540,7 @@ export function OpportunitySheet() {
                         {sectionRows.map((row) => (
                           <TableRow
                             key={row.id}
-                            className="border-dxe-rule transition-colors hover:bg-dxe-gold-bg/45"
+                            className="border-dxe-rule transition-colors hover:bg-dxe-gold-bg/40"
                           >
                             <TableCell className="align-top">
                               <Input
