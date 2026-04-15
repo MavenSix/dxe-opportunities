@@ -1,13 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertCircle, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import type { Opportunity, PipelineStage } from "@/data/opportunities";
-import {
-  DEFAULT_OPPORTUNITIES,
-  loadPersistedOpportunities,
-  persistOpportunities,
-  STAGE_LABEL,
-} from "@/data/opportunities";
+import { DEFAULT_OPPORTUNITIES, STAGE_LABEL } from "@/data/opportunities";
+import { useOpportunitiesSync } from "@/hooks/useOpportunitiesSync";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,16 +81,22 @@ const emptyAddForm = {
 };
 
 export function OpportunitySheet() {
-  const [rows, setRows] = useState<Opportunity[]>(loadPersistedOpportunities);
+  const {
+    rows,
+    setRows,
+    loadState,
+    saveState,
+    saveError,
+    cloudEnabled,
+    usingLocalFallback,
+    retrySave,
+    resetToBundledDefaults,
+  } = useOpportunitiesSync();
   const [filterAccount, setFilterAccount] = useState(ALL);
   const [filterPerson, setFilterPerson] = useState(ALL);
   const [filterStatus, setFilterStatus] = useState(ALL);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState(emptyAddForm);
-
-  useEffect(() => {
-    persistOpportunities(rows);
-  }, [rows]);
 
   const accounts = useMemo(
     () =>
@@ -152,10 +154,8 @@ export function OpportunitySheet() {
   }
 
   function resetToDefaults() {
-    const next = [...DEFAULT_OPPORTUNITIES];
-    setRows(next);
-    reconcileFilters(next);
-    persistOpportunities(next);
+    resetToBundledDefaults();
+    reconcileFilters([...DEFAULT_OPPORTUNITIES]);
   }
 
   function commitAddRow() {
@@ -191,6 +191,17 @@ export function OpportunitySheet() {
     });
   }
 
+  if (loadState === "loading") {
+    return (
+      <div className="flex min-h-svh items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3 text-dxe-ink-mid">
+          <Loader2 className="size-8 animate-spin text-dxe-gold" aria-hidden />
+          <p className="text-sm">Loading opportunities…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 pb-16 sm:px-6">
       <header className="grid gap-6 border-b-2 border-dxe-ink pb-6 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -204,14 +215,50 @@ export function OpportunitySheet() {
           </h1>
           <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-dxe-ink-mid">
             All project types on one page. Add or delete rows per section, filter, rename,
-            and move types. Everything autosaves in this browser.
+            and move types. Edits autosave
+            {cloudEnabled ? " to the team workbook" : " in this browser"}.
           </p>
         </div>
-        <div className="text-[11px] leading-loose text-dxe-ink-soft sm:text-left md:text-right">
-          <strong className="mb-0.5 block font-semibold text-dxe-ink">
-            Local workspace
-          </strong>
-          Edits stay on this device
+        <div className="max-w-[14rem] text-[11px] leading-relaxed text-dxe-ink-soft sm:text-left md:text-right">
+          {cloudEnabled ? (
+            <>
+              <strong className="mb-1 block font-semibold text-dxe-ink">
+                Cloud sync
+              </strong>
+              {saveState === "saving" && (
+                <span className="text-dxe-ink-mid">Saving…</span>
+              )}
+              {saveState === "saved" && (
+                <span className="text-dxe-teal">Saved</span>
+              )}
+              {saveState === "error" && (
+                <span className="text-dxe-coral">
+                  Couldn’t save
+                  {saveError ? `: ${saveError}` : ""}.{" "}
+                  <button
+                    type="button"
+                    className="font-semibold underline decoration-dotted underline-offset-2 hover:text-dxe-ink"
+                    onClick={() => void retrySave()}
+                  >
+                    Retry
+                  </button>
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <strong className="mb-1 block font-semibold text-dxe-ink">
+                This browser only
+              </strong>
+              <span>Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to sync the team.</span>
+            </>
+          )}
+          {usingLocalFallback && (
+            <span className="mt-2 flex items-start gap-1.5 text-dxe-coral">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              <span>Cloud unavailable — showing data from this device.</span>
+            </span>
+          )}
         </div>
       </header>
 
