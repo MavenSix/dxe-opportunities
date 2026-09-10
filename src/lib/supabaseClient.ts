@@ -1,30 +1,59 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let cached: SupabaseClient | null | undefined;
+import {
+  getMissingSupabaseEnv,
+  resolveSupabaseConfig,
+  type SupabaseConfig,
+} from "@/lib/supabaseEnv";
 
-/** Which `VITE_*` vars are unset or blank — for troubleshooting (names only, no secrets). */
-export function getMissingViteSupabaseEnv(): string[] {
-  const missing: string[] = [];
-  if (!import.meta.env.VITE_SUPABASE_URL?.trim()) {
-    missing.push("VITE_SUPABASE_URL");
+export {
+  classifySupabaseKey,
+  describeSupabaseError,
+  resolveSupabaseConfig,
+} from "@/lib/supabaseEnv";
+export type { SupabaseConfig, SupabaseKeyKind } from "@/lib/supabaseEnv";
+
+let cachedConfig: SupabaseConfig | null | undefined;
+let cachedClient: SupabaseClient | null | undefined;
+
+/**
+ * Resolved connection settings (URL + which variable supplied the key and
+ * what kind of key it is). Never expose `key` in the UI.
+ */
+export function getSupabaseConfig(): SupabaseConfig | null {
+  if (cachedConfig === undefined) {
+    cachedConfig = resolveSupabaseConfig(import.meta.env);
+    if (cachedConfig) {
+      for (const w of cachedConfig.warnings) {
+        console.warn(`[supabase] ${w}`);
+      }
+    }
   }
-  if (!import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()) {
-    missing.push("VITE_SUPABASE_ANON_KEY");
-  }
-  return missing;
+  return cachedConfig;
 }
 
-/** Returns null when env vars are missing (local dev without cloud). */
+/** Which variables are still needed to enable cloud sync (names only). */
+export function getMissingViteSupabaseEnv(): string[] {
+  return getMissingSupabaseEnv(import.meta.env);
+}
+
+/** Returns null when nothing usable is configured (browser-only mode). */
 export function getSupabase(): SupabaseClient | null {
-  if (cached !== undefined) {
-    return cached;
+  if (cachedClient !== undefined) {
+    return cachedClient;
   }
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    cached = null;
+  const cfg = getSupabaseConfig();
+  if (!cfg) {
+    cachedClient = null;
     return null;
   }
-  cached = createClient(url, key);
-  return cached;
+  cachedClient = createClient(cfg.url, cfg.key, {
+    auth: {
+      // This app has no user sign-in; skip the session bookkeeping.
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+  return cachedClient;
 }

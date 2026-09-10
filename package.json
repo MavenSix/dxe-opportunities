@@ -10,7 +10,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/",
+    "check": "npm run lint && tsc -b && npm test"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
