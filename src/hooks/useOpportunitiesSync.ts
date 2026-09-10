@@ -72,6 +72,7 @@ export function useOpportunitiesSync() {
   const [realtimeState, setRealtimeState] = useState<RealtimeUiState>(
     supabase ? "connecting" : "off",
   );
+  // (stays "connecting" until the first successful load subscribes)
   const [lastRemoteUpdateAt, setLastRemoteUpdateAt] = useState<Date | null>(
     null,
   );
@@ -243,8 +244,10 @@ export function useOpportunitiesSync() {
   }, [rows, supabase]);
 
   // ── Realtime: adopt teammates' edits ────────────────────────────────────
+  // Only after a successful cloud load: with a bad key or no network the
+  // socket would just retry in a loop. Reconnect → reload → subscribe.
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || loadState !== "ready" || usingLocalFallback) return;
 
     const channel: RealtimeChannel = supabase
       .channel(`workbook:${WORKBOOK_ID}`)
@@ -299,8 +302,9 @@ export function useOpportunitiesSync() {
 
     return () => {
       void supabase.removeChannel(channel);
+      setRealtimeState((s) => (s === "live" ? "connecting" : s));
     };
-  }, [supabase, adoptCloudRows]);
+  }, [supabase, adoptCloudRows, loadState, usingLocalFallback]);
 
   const retrySave = useCallback(async () => {
     if (!supabase) {
