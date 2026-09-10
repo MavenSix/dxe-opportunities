@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import type { Opportunity, PipelineStage } from "@/data/opportunities";
-import { DEFAULT_OPPORTUNITIES, STAGE_LABEL } from "@/data/opportunities";
+import {
+  DEFAULT_OPPORTUNITIES,
+  STAGE_LABEL,
+  statusOptionsFor,
+} from "@/data/opportunities";
 import { useOpportunitiesSync } from "@/hooks/useOpportunitiesSync";
 import { getMissingViteSupabaseEnv } from "@/lib/supabaseClient";
 import { Badge } from "@/components/ui/badge";
@@ -113,11 +117,14 @@ export function OpportunitySheet() {
       [...new Set(rows.map((r) => r.person))].sort((a, b) => a.localeCompare(b)),
     [rows],
   );
+  /** Statuses present in the data — for the filter. */
   const statuses = useMemo(
     () =>
       [...new Set(rows.map((r) => r.status))].sort((a, b) => a.localeCompare(b)),
     [rows],
   );
+  /** Standard statuses (incl. Won / Lost) plus any custom ones — for editing. */
+  const statusOptions = useMemo(() => statusOptionsFor(rows), [rows]);
 
   const stages = Object.entries(STAGE_LABEL) as [PipelineStage, string][];
 
@@ -415,15 +422,28 @@ export function OpportunitySheet() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="add-status">Status</Label>
-                <Input
-                  id="add-status"
-                  value={addForm.status}
-                  onChange={(e) =>
-                    setAddForm((f) => ({ ...f, status: e.target.value }))
-                  }
-                  placeholder="e.g. In progress"
-                  autoComplete="off"
-                />
+                <Select
+                  value={addForm.status || "—"}
+                  onValueChange={(v) => setAddForm((f) => ({ ...f, status: v }))}
+                >
+                  <SelectTrigger id="add-status" className="w-full">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        <span className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={`pointer-events-none ${statusBadgeClass(s)}`}
+                          >
+                            {s}
+                          </Badge>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="add-notes">Notes</Label>
@@ -616,7 +636,7 @@ export function OpportunitySheet() {
                                   <SelectValue placeholder="Status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {statuses.map((s) => (
+                                  {statusOptions.map((s) => (
                                     <SelectItem key={s} value={s}>
                                       <span className="flex items-center gap-2">
                                         <Badge

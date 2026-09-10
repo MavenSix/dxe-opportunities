@@ -20,6 +20,30 @@ export const STAGE_LABEL: Record<PipelineStage, string> = {
   projects: "Projects",
 };
 
+/**
+ * Standard statuses, in the order they appear in dropdowns. Rows may still
+ * carry other values (typed in earlier); those are shown after this list.
+ */
+export const STATUS_OPTIONS = [
+  "—",
+  "In progress",
+  "Starting",
+  "Sent email",
+  "SOW Sent",
+  "SOW Under Review",
+  "On hold",
+  "Won",
+  "Lost",
+] as const;
+
+/** Standard list first, then any other values present in the rows. */
+export function statusOptionsFor(rows: readonly Opportunity[]): string[] {
+  const extra = [...new Set(rows.map((r) => r.status))]
+    .filter((s) => !(STATUS_OPTIONS as readonly string[]).includes(s))
+    .sort((a, b) => a.localeCompare(b));
+  return [...STATUS_OPTIONS, ...extra];
+}
+
 /** Normalize legacy rows when "lost" was a stage (now use status "Lost" / etc.). */
 export function migrateOpportunityRow(row: Opportunity): Opportunity {
   let { status, stage } = row;
@@ -31,7 +55,7 @@ export function migrateOpportunityRow(row: Opportunity): Opportunity {
       status === "—" || status.trim() === "" ? "Lost" : status;
   }
 
-  if (status === "Ongoing") {
+  if (status === "Ongoing" || status === "In Progress") {
     status = "In progress";
   }
   if (status === "Starts Monday" || status === "Starts on Monday") {
