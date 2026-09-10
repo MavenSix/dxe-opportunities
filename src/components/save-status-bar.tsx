@@ -1,14 +1,32 @@
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
-import { AlertCircle, CheckCircle2, Cloud, Loader2, Monitor } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Cloud,
+  Loader2,
+  Monitor,
+  Users,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { SaveUiState } from "@/hooks/useOpportunitiesSync";
+import type {
+  RealtimeUiState,
+  SaveUiState,
+} from "@/hooks/useOpportunitiesSync";
 
-function formatSavedTime(d: Date) {
+/** "1:49 PM" for today, "Sep 3, 1:49 PM" for anything older. */
+function formatSavedTime(d: Date, now: Date = new Date()) {
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  // Note: `timeStyle` cannot be mixed with `month`/`day`, so spell out the
+  // time parts explicitly.
   return new Intl.DateTimeFormat(undefined, {
-    timeStyle: "short",
-    dateStyle: undefined,
+    hour: "numeric",
+    minute: "2-digit",
+    ...(sameDay ? {} : { month: "short", day: "numeric" }),
   }).format(d);
 }
 
@@ -16,8 +34,10 @@ type Props = {
   saveState: SaveUiState;
   saveError: string | null;
   lastSavedAt: Date | null;
+  lastRemoteUpdateAt?: Date | null;
   cloudEnabled: boolean;
   usingLocalFallback: boolean;
+  realtimeState?: RealtimeUiState;
   onRetry: () => void;
 };
 
@@ -25,12 +45,16 @@ export function SaveStatusBar({
   saveState,
   saveError,
   lastSavedAt,
+  lastRemoteUpdateAt = null,
   cloudEnabled,
   usingLocalFallback,
+  realtimeState = "off",
   onRetry,
 }: Props) {
   const modeLabel = cloudEnabled ? "Team workbook (cloud)" : "This browser only";
   const ModeIcon = cloudEnabled ? Cloud : Monitor;
+  const live = cloudEnabled && !usingLocalFallback && realtimeState === "live";
+  const showTeammateUpdate = live && !!lastRemoteUpdateAt;
 
   const bar = (
     <motion.div
@@ -49,6 +73,24 @@ export function SaveStatusBar({
           <span className="truncate text-[11px] font-medium uppercase tracking-wide text-dxe-ink-soft">
             {modeLabel}
           </span>
+          {live && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-dxe-teal/35 bg-dxe-teal-lt/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dxe-teal"
+              title="Teammates' edits appear here automatically"
+            >
+              <span
+                className="size-1.5 rounded-full bg-dxe-teal motion-safe:animate-pulse"
+                aria-hidden
+              />
+              Live
+            </span>
+          )}
+          {showTeammateUpdate && (
+            <span className="hidden items-center gap-1 text-[11px] text-dxe-ink-mid sm:inline-flex">
+              <Users className="size-3.5 text-dxe-ink-soft" aria-hidden />
+              Updated by a teammate · {formatSavedTime(lastRemoteUpdateAt!)}
+            </span>
+          )}
         </div>
 
         <div className="flex min-h-[2.25rem] min-w-0 flex-1 items-center justify-end gap-2 sm:flex-initial sm:justify-end">
@@ -104,8 +146,8 @@ export function SaveStatusBar({
                 className="size-4 shrink-0 text-dxe-coral"
                 aria-hidden
               />
-              <span className="text-sm font-medium text-dxe-coral">
-                Couldn’t save
+              <span className="max-w-[34rem] text-sm font-medium text-dxe-coral">
+                {usingLocalFallback ? "Cloud unavailable" : "Couldn’t save"}
                 {saveError ? ` — ${saveError}` : ""}
               </span>
               <Button
@@ -115,7 +157,7 @@ export function SaveStatusBar({
                 className="h-7 border-dxe-coral/50 text-xs font-semibold text-dxe-coral hover:bg-dxe-coral/10"
                 onClick={() => void onRetry()}
               >
-                Retry
+                {usingLocalFallback ? "Reconnect" : "Retry"}
               </Button>
             </motion.div>
           )}
@@ -128,7 +170,7 @@ export function SaveStatusBar({
 
       {usingLocalFallback && cloudEnabled && (
         <p className="mx-auto mt-1 max-w-6xl px-4 text-center text-[10px] text-dxe-coral">
-          Cloud sync failed — edits are stored on this device until connection works again.
+          Showing this device’s copy. Edits stay on this device and are not shared until you reconnect.
         </p>
       )}
     </motion.div>

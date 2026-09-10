@@ -90,8 +90,10 @@ export function OpportunitySheet() {
     saveState,
     saveError,
     lastSavedAt,
+    lastRemoteUpdateAt,
     cloudEnabled,
     usingLocalFallback,
+    realtimeState,
     retrySave,
     resetToBundledDefaults,
   } = useOpportunitiesSync();
@@ -228,10 +230,10 @@ export function OpportunitySheet() {
                 Cloud sync off
               </strong>
               <span className="block">
-                Add <code className="rounded bg-dxe-cream-2 px-1 text-[10px]">VITE_SUPABASE_*</code>{" "}
-                in <code className="rounded bg-dxe-cream-2 px-1 text-[10px]">.env.local</code>{" "}
-                (see <code className="rounded bg-dxe-cream-2 px-1 text-[10px]">.env.example</code>
-                ). Missing: {getMissingViteSupabaseEnv().join(", ")}.
+                Run <code className="rounded bg-dxe-cream-2 px-1 text-[10px]">vercel env pull .env.local</code>,
+                or add the vars from{" "}
+                <code className="rounded bg-dxe-cream-2 px-1 text-[10px]">.env.example</code>.
+                Missing: {getMissingViteSupabaseEnv().join(", ")}.
               </span>
             </div>
           )}
@@ -668,8 +670,10 @@ export function OpportunitySheet() {
         saveState={saveState}
         saveError={saveError}
         lastSavedAt={lastSavedAt}
+        lastRemoteUpdateAt={lastRemoteUpdateAt}
         cloudEnabled={cloudEnabled}
         usingLocalFallback={usingLocalFallback}
+        realtimeState={realtimeState}
         onRetry={retrySave}
       />
     </div>
